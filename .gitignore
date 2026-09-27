@@ -16,3 +16,8 @@ build/
 *.map
 *.bin
 *.hex
+
+# IDE / STM32Cube for VS Code local settings (27-09-2026). VS Code rewrites
+# these per machine; each developer keeps their own copy.
+.vscode/
+.settings/
