@@ -44,15 +44,11 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    application/Src/elec_angle.c
-    application/Src/foc_current_control.c
-    application/Src/app_foc_task.c
     # Add user sources here
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    application/Inc
     # Add user defined include paths
 )
 

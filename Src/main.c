@@ -26,11 +26,6 @@
 #include "mc_api.h"
 #include "mcp_config.h"
 #include "mc_tasks.h"
-
-#include <elec_angle.h>
-#include "foc_current_control.h"   /* FOC_GuardReport() */
-#include "app_time.h"              /* pdMS_TO_TICKS(): real ms (FreeRTOS tick is 2 kHz) */
-#include "app_foc_task.h"          /* app_foc_task_run(): foc_task body */
 // #include "mc_interface.h"
 /* USER CODE END Includes */
 
@@ -46,7 +41,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-/* APP_DIAG_COMMUTATION / APP_MOVE_xxx moved to application/Src/app_foc_task.c (26-09-2026) */
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -70,8 +65,6 @@ osThreadId instr_taskHandle;
 osThreadId handler_taskHandle;
 osThreadId mediumFrequencyHandle;
 osThreadId safetyHandle;
-
-
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -248,7 +241,7 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of foc_task */
-  osThreadDef(foc_task, start_foc_control_task, osPriorityAboveNormal, 0, 512);
+  osThreadDef(foc_task, start_foc_control_task, osPriorityAboveNormal, 0, 128);
   foc_taskHandle = osThreadCreate(osThread(foc_task), NULL);
 
   /* definition and creation of instr_task */
@@ -256,7 +249,7 @@ int main(void)
   instr_taskHandle = osThreadCreate(osThread(instr_task), NULL);
 
   /* definition and creation of handler_task */
-  osThreadDef(handler_task, start_command_handler_task, osPriorityBelowNormal, 0, 256);
+  osThreadDef(handler_task, start_command_handler_task, osPriorityBelowNormal, 0, 128);
   handler_taskHandle = osThreadCreate(osThread(handler_task), NULL);
 
   /* definition and creation of mediumFrequency */
@@ -672,7 +665,7 @@ static void MX_TIM4_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM4_Init 2 */
-  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);   /* start the encoder timer (as in the working v33) */
+
   /* USER CODE END TIM4_Init 2 */
 
 }
@@ -889,7 +882,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : M1_ENCODER_Z_Pin */
   GPIO_InitStruct.Pin = M1_ENCODER_Z_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP,//GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(M1_ENCODER_Z_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -898,7 +891,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* app_stop() and app_position_move_test() moved to application/Src/app_foc_task.c (26-09-2026) */
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_start_foc_control_task */
@@ -911,9 +904,43 @@ static void MX_GPIO_Init(void)
 void start_foc_control_task(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Whole task body lives in the application layer (application/Src/
-   * app_foc_task.c) so it survives CubeMX regeneration. Never returns. */
-  app_foc_task_run(argument);
+
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+  printf("[INIT] Encoder count: %d\r\n", (int)(int16_t)LL_TIM_GetCounter(TIM4));
+
+  MC_StartMotor1();
+
+  TickType_t start_tick = xTaskGetTickCount();
+
+  while (MCI_GetSTMState(pMCI[M1]) != RUN)
+  {
+      if ((xTaskGetTickCount() - start_tick) >= pdMS_TO_TICKS(6000))
+      {
+          printf("[FOC] Timeout waiting for motor RUN state\r\n");
+          // motor_fault = 1;
+          break;
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(1));
+  }
+
+  PID_SetKP(&PID_PosParamsM1, 500);
+  PID_SetKI(&PID_PosParamsM1, 0);              
+  PID_SetKD(&PID_PosParamsM1, 0);
+  PID_SetPrevError(&PID_PosParamsM1, 0);
+  PID_SetIntegralTerm(&PID_PosParamsM1, 0); 
+
+  MC_ProgramPositionCommandMotor1(100, 2);
+
+  printf("Command executed\n");
+
+  for(;;)
+  {
+    // printf("start_foc_control_task\n");
+
+
+    vTaskDelay(1);
+  }
   /* USER CODE END 5 */
 }
 

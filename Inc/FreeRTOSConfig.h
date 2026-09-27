@@ -134,22 +134,6 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
-
-/* Real FreeRTOS tick rate (26-09-2026). The MCSDK replaces
- * vPortSetupTimerInterrupt() (Src/motorcontrol.c) so SysTick runs at
- * SYS_TICK_FREQUENCY = 2000 Hz, not configTICK_RATE_HZ (1000).
- * configTICK_RATE_HZ is left at 1000 on purpose: CMSIS-RTOS v1 divides by
- * portTICK_PERIOD_MS = 1000 / configTICK_RATE_HZ, which would be 0 at 2000.
- * MUST equal SYS_TICK_FREQUENCY (parameters_conversion.h); a _Static_assert
- * in application/Inc/app_time.h fails the build if they ever differ. */
-#define APP_RTOS_TICK_HZ   2000U
-
-/* Standard FreeRTOS ms -> ticks, overridden to use the REAL tick rate
- * (projdefs.h only defines it #ifndef, so this takes precedence). Without
- * this, pdMS_TO_TICKS(x) gave half the real time. 32-bit maths: exact up
- * to ~2147 s (35 min) per call. */
-#define pdMS_TO_TICKS( xTimeInMs ) \
-  ( ( TickType_t ) ( ( ( TickType_t ) ( xTimeInMs ) * ( TickType_t ) APP_RTOS_TICK_HZ ) / ( TickType_t ) 1000U ) )
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

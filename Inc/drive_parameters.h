@@ -55,10 +55,10 @@
 
 /* Gains values for torque and flux control loops */
 #define PID_TORQUE_KP_DEFAULT               400             //0
-#define PID_TORQUE_KI_DEFAULT               20            /* was 0 (P-only gave ~19% of Iqref). 20/1024 -> ~75 rad/s, below the 5 ms Iqd filter; MCSDK default 2829 is far too fast with that filter */
+#define PID_TORQUE_KI_DEFAULT               0             //2829
 #define PID_TORQUE_KD_DEFAULT               100
 #define PID_FLUX_KP_DEFAULT                 280             //0
-#define PID_FLUX_KI_DEFAULT                 20              /* was 0; same reasoning as PID_TORQUE_KI_DEFAULT */
+#define PID_FLUX_KI_DEFAULT                 0               //2829
 #define PID_FLUX_KD_DEFAULT                 100
 
 /* Torque/Flux control loop gains dividers*/
@@ -93,18 +93,18 @@
 
 /* Default settings */
 #define DEFAULT_CONTROL_MODE                MCM_SPEED_MODE
-#define DEFAULT_TARGET_SPEED_RPM            0//1440
+#define DEFAULT_TARGET_SPEED_RPM            1440
 #define DEFAULT_TARGET_SPEED_UNIT           (DEFAULT_TARGET_SPEED_RPM*SPEED_UNIT/U_RPM)
 #define DEFAULT_TORQUE_COMPONENT_A          0
 #define DEFAULT_FLUX_COMPONENT_A            0
 
-#define PID_POSITION_KP_GAIN                500      /* 500/4096 = 0.12, bench-proven 26-09-2026: stops at the 100 rad target on the FREE rotor. 1000/1024 hunted; 64/4096 + KD 8 hunted. Positive: +Iq drives position +. Retune on the lead screw */
+#define PID_POSITION_KP_GAIN                -10      //10000
 #define PID_POSITION_KI_GAIN                0         //1000
-#define PID_POSITION_KD_GAIN                0         /* KD 8/16 hunted on the bench (likely cause: derivative of a 1024-count encoder is too jumpy at 1 kHz) */
-#define PID_POSITION_KPDIV                  4096      /* was 1024: finer KP steps */
+#define PID_POSITION_KD_GAIN                0         //1000
+#define PID_POSITION_KPDIV                  1024
 #define PID_POSITION_KIDIV                  32768
 #define PID_POSITION_KDDIV                  16
-#define PID_POSITION_KPDIV_LOG              LOG2((4096))
+#define PID_POSITION_KPDIV_LOG              LOG2((1024))
 #define PID_POSITION_KIDIV_LOG              LOG2((32768))
 #define PID_POSITION_KDDIV_LOG              LOG2((16))
 #define PID_POSITION_ANGLE_STEP             10.0
@@ -128,9 +128,9 @@
 
 /******************************   START-UP PARAMETERS   **********************/
 /* Encoder alignment */
-#define M1_ALIGNMENT_DURATION               2500  /*!< ms. Was 1000 (700 before that). MCSDK EAC ramps 0 -> FINAL_I_ALIGNMENT over this whole time and snapshots the encoder at the end with no hold, so a slower ramp lets the light rotor settle (bench: commutation offset varied 5-37 deg, one boot ran away). Self-test (~330 ms) runs at its start */
+#define M1_ALIGNMENT_DURATION               400   //700 /*!< milliseconds */
 #define M1_ALIGNMENT_ANGLE_DEG              90 /*!< degrees [0...359] */
-#define FINAL_I_ALIGNMENT_A                 0.6     /*!< A (was 0.04, too weak to align against the lead screw; original 1.6) */
+#define FINAL_I_ALIGNMENT_A                 0.04    //1.6 /*!< s16A */
 /* With ALIGNMENT_ANGLE_DEG equal to 90 degrees final alignment */
 /* phase current = (FINAL_I_ALIGNMENT * 1.65/ Av)/(32767 * Rshunt) */
 /* being Av the voltage gain between Rshunt and A/D input */
