@@ -14,6 +14,12 @@ extern volatile int16_t  g_force_angle;      /* forced electrical angle (s16)   
 extern volatile int16_t  g_openloop_id;      /* open-loop d-axis current ref (s16)    */
 extern volatile int16_t  g_el_raw_dbg;       /* raw electrical angle, set by FOC ISR  */
 
+/* Race-free Id clear on open-loop exit (27-09-2026): set by open_loop_exit()
+ * (elec_angle.c), served and cleared by MC_APP_PostMediumFrequencyHook_M1()
+ * (foc_current_control.c), which zeroes FOCVars[M1].Iqdref.d from inside the
+ * MF task, after FOC_CalcCurrRef() has written back its copy. */
+extern volatile uint8_t  g_id_clear_req;
+
 /* ---------------------------------------------------------------------------
  * Commutation offset auto-calibration (see elec_angle.c)
  * ------------------------------------------------------------------------- */

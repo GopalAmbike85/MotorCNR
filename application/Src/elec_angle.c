@@ -18,6 +18,11 @@ volatile uint8_t g_force_angle_en = 0;   /* 1 = force hElAngle to g_force_angle 
 volatile int16_t g_force_angle    = 0;   /* forced electrical angle (s16) when enabled */
 volatile int16_t g_el_raw_dbg     = 0;   /* raw pre-offset electrical angle, for debug */
 volatile int16_t g_openloop_id    = 0;   /* open-loop d-axis current ref (s16); 0 = off */
+volatile uint8_t g_id_clear_req   = 0U;  /* 1 = MF hook must zero Iqdref.d (race fix) */
+
+/* Max wait for the MF hook to confirm the Id clear. The MF task runs every
+ * 1 ms, so 20 ms is ample even with some starvation of its idle priority. */
+#define OL_EXIT_CONFIRM_MS   20U
 
 /**
  * @brief  Leaves the open-loop forced-angle mode and removes the open-loop
@@ -28,14 +33,42 @@ volatile int16_t g_openloop_id    = 0;   /* open-loop d-axis current ref (s16); 
  *         was left in force indefinitely. It is cleared here explicitly.
  *         Interrupts are masked so the FOC ISR cannot run between clearing
  *         the enable flag and clearing the reference.
+ * @note   Race fix (27-09-2026): FOC_CalcCurrRef() (MF task, IDLE priority)
+ *         copies the whole Iqdref, computes, then writes the copy back in two
+ *         separate critical sections. This task (higher priority) can pre-empt
+ *         it in between; the write-back then restores the stale Id = CAL_ID_A
+ *         and nothing clears it again. So the clear is ALSO requested from the
+ *         MF task itself (g_id_clear_req, served by
+ *         MC_APP_PostMediumFrequencyHook_M1() in foc_current_control.c, which
+ *         runs right after FOC_CalcCurrRef() in the same task, so no stale
+ *         copy can outlive it). This waits for that confirmation.
+ * @retval 1 if the MF task confirmed the clear, 0 on timeout (the request
+ *         stays pending and is still served on a later MF tick).
  */
-static void open_loop_exit(void)
+static uint8_t open_loop_exit(void)
 {
+  uint32_t t0;
+
   __disable_irq();
   g_force_angle_en        = 0U;
   g_openloop_id           = 0;
   FOCVars[M1].Iqdref.d    = 0;
+  g_id_clear_req          = 1U;      /* MF hook clears .d again, race-free */
   __enable_irq();
+
+  t0 = HAL_GetTick();
+  while ((0U != g_id_clear_req) && ((HAL_GetTick() - t0) < OL_EXIT_CONFIRM_MS))
+  {
+    vTaskDelay(pdMS_TO_TICKS(1));    /* let the MF task run */
+  }
+
+  if (0U != g_id_clear_req)
+  {
+    printf("[OL] WARNING: Id clear not confirmed by MF task within %u ms (still pending)\r\n",
+           (unsigned)OL_EXIT_CONFIRM_MS);
+    return 0U;
+  }
+  return 1U;
 }
 
 /**
@@ -242,7 +275,10 @@ uint8_t commutation_calibrate(void)
     }
   }
 
-  open_loop_exit();                   /* back to closed-loop FOC, Id ref 0 */
+  (void)open_loop_exit();             /* back to closed-loop FOC, Id ref 0.
+                                       * A timeout is only a warning: the clear
+                                       * stays requested and the MF hook still
+                                       * serves it on its next tick. */
 
   /* 3. Evaluate and apply */
   status = (0U == ok) ? CAL_ERR_ABORTED

@@ -195,6 +195,14 @@ void app_foc_task_run(void const *argument)
   (void)argument;
 
   /* 1. Start the motor and wait for RUN (MCSDK alignment runs first) */
+
+  /* MCSDK rule (mc_api.c, MC_StartMotor1() doc): a speed/torque/current
+   * reference must be programmed before starting. Zero torque, applied at
+   * once (0 ms ramp); it is buffered and executed on entry to RUN. The
+   * position controller (TC_PositionRegulation) then overrides it with its
+   * own torque every medium-frequency tick. Also makes
+   * MC_GetCommandStateMotor1() report success instead of "unsuccessful". */
+  MC_ProgramTorqueRampMotor1(0, 0U);
   MC_StartMotor1();
   start_tick = xTaskGetTickCount();
 

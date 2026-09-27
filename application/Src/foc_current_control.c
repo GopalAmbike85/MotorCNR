@@ -474,6 +474,20 @@ void MC_APP_PostMediumFrequencyHook_M1(void)
   float   err_rad = 0.0f;
   uint8_t trip;
 
+  /* Race-free Id clear requested by open_loop_exit() (elec_angle.c).
+   * This hook runs in the MF task right AFTER TSK_MediumFrequencyTaskM1()
+   * -> FOC_CalcCurrRef() has written back its Iqdref copy, so a stale Id
+   * from a pre-empted FOC_CalcCurrRef() is overwritten here and cannot come
+   * back. Skipped while open loop is (re-)enabled, as the ISR owns .d then.
+   * Interrupts masked: the FOC ISR also writes Iqdref. */
+  if ((0U != g_id_clear_req) && (0U == g_force_angle_en))
+  {
+    __disable_irq();
+    FOCVars[M1].Iqdref.d = 0;
+    g_id_clear_req       = 0U;
+    __enable_irq();
+  }
+
   if (0U != active)
   {
     /* 32-bit conversion: SPEED_UNIT_2_RPM() casts to int16_t and would wrap
